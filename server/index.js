@@ -5,6 +5,8 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
+const cheerio = require('cheerio');
+
 
 dotenv.config();
 
@@ -277,6 +279,33 @@ app.get('/auth/real-debrid/callback', async (req, res) => {
 
         // Return error response to the client
         res.status(500).json({ error: 'Failed to exchange code for access token.' });
+    }
+});
+
+
+app.get('/scrape', async (req, res) => {
+    const { url } = req.query;
+    if (!url) {
+        return res.status(400).send('Missing URL');
+    }
+
+    try {
+        console.log(`Scraping URL: ${url}`);
+        const response = await axios.get(url);
+        const html = response.data;
+        const $ = cheerio.load(html);
+
+        // Extract the first magnet link
+        const firstMagnetLink = $('a[href^="magnet:?xt=urn:btih:"]').first().attr('href');
+        if (!firstMagnetLink) {
+            return res.status(404).send({ message: 'No magnet link found' });
+        }
+
+        console.log(`First Magnet Link: ${firstMagnetLink}`);
+        res.send({ magnetLink: firstMagnetLink });
+    } catch (error) {
+        console.error('Error scraping:', error.message);
+        res.status(500).send({ error: 'Failed to scrape magnet link' });
     }
 });
 
